@@ -87,6 +87,8 @@ html[dir="ltr"] .header-center{direction:ltr}
 .card-wrap:active{transform:scale(.97)}
 
 /* hover flip */
+.card-wrap{container-type:size}
+.thumb-title{position:absolute;display:none;align-items:center;justify-content:center;font-family:'Cairo',sans-serif;font-weight:900;color:#fff;line-height:1;white-space:nowrap;pointer-events:none;font-size:9px;font-size:7.6cqh}
 .card-flip-inner{position:absolute;inset:0;transform-style:preserve-3d;
   transition:transform .6s cubic-bezier(.34,1.1,.64,1);border-radius:var(--radius)}
 .card-wrap:hover .card-flip-inner{transform:rotateY(calc(180deg * var(--flip)))}
@@ -260,9 +262,30 @@ const I18N = {
 let lang = 'ar';   // first visit = Arabic
 try { if (localStorage.getItem(LANG_KEY) === 'en') lang = 'en'; } catch (e) {}
 
-function lensDesc(L) { return (lang === 'en' && DESC_EN[L.id]) ? DESC_EN[L.id] : L.desc; }
-/* big name = current language, small name = the other one */
-function lensNames(L) { return lang === 'en' ? [L.en, L.ar] : [L.ar, L.en]; }
+const DESC_AR = { brainstorming: 'اكتب موضوع الدرس في مربع المحور' };
+function lensDesc(L) {
+  if (lang === 'en') return DESC_EN[L.id] || L.desc;
+  return DESC_AR[L.id] || L.desc;
+}
+/* each language shows its own name only */
+function lensName(L) { return lang === 'en' ? L.en : L.ar; }
+
+/* diagram texts: English (as designed) or Arabic */
+const DIAG_AR = {
+  'BRAINSTORMING':'العصف الذهني','SEQUENCING':'التسلسل','COMPARING AND CONTRASTION':'المقابلة والمقارنة',
+  'DECISION SCALE':'مقياس القرار','DIVIDING (WHOLE & PART)':'الجزء والكل','CAUSE & EFFECT':'الأسباب والنتائج',
+  'LINKING':'الربط','CLASSIFYING':'التصنيف',
+  'Core':'المحور','Core 1':'العنصر 1','Core 2':'العنصر 2','Core 1 / Core 2':'العنصر 1 / العنصر 2',
+  'Idea':'فكرة','Step':'خطوة','Similarity':'تشابه','Difference':'اختلاف','Detail':'تفصيل',
+  'Whole':'الكل','Main Part':'جزء رئيسي','Part':'جزء','Sub':'فرعي','Event':'الحدث',
+  'Cause':'سبب','Effect':'نتيجة','Linking':'الربط','Linking Factor':'عامل الربط',
+  'Category':'فئة','Example':'مثال',
+  'A':'أ','B':'ب','C':'ج','D':'د','E':'هـ','F':'و'
+};
+function dl(t) { return (lang === 'ar' && Object.prototype.hasOwnProperty.call(DIAG_AR, t)) ? DIAG_AR[t] : t; }
+const FF = () => lang === 'ar' ? 'Cairo,Arial,sans-serif' : 'Arial,sans-serif';
+/* where the English title sits inside each thumbnail image (percent of the image) */
+const BOXES = [{"l": 11.543, "r": 84.571, "t": 1.772, "b": 8.228, "th": 4.43, "cx": 48.057, "bg": "rgb(75,108,179)"}, {"l": 11.429, "r": 84.343, "t": 8.25, "b": 14.75, "th": 4.5, "cx": 47.886, "bg": "rgb(75,108,179)"}, {"l": 11.657, "r": 84.057, "t": 2.025, "b": 8.481, "th": 4.43, "cx": 47.857, "bg": "rgb(77,105,178)"}, {"l": 11.371, "r": 82.4, "t": 7.531, "b": 13.827, "th": 4.321, "cx": 46.886, "bg": "rgb(75,108,179)"}, {"l": 11.371, "r": 82.286, "t": 1.646, "b": 8.734, "th": 5.063, "cx": 46.829, "bg": "rgb(75,108,179)"}, {"l": 11.486, "r": 82.914, "t": 5.556, "b": 11.852, "th": 4.321, "cx": 47.2, "bg": "rgb(75,108,179)"}, {"l": 11.371, "r": 81.771, "t": 1.392, "b": 7.595, "th": 4.177, "cx": 46.571, "bg": "rgb(75,108,179)"}, {"l": 11.371, "r": 82.514, "t": 3.21, "b": 9.506, "th": 4.321, "cx": 46.943, "bg": "rgb(75,108,179)"}];
 
 /* ════════════════════════════════
    SVG DIAGRAM BUILDERS
@@ -278,69 +301,9 @@ const BLK  = '#333';
 const WHT  = '#fff';
 const WHTBOX = '#f9f9f9';
 
-/* Localized labels used inside the generated SVG diagrams.
-   Arabic is the default; English appears only when the user switches language. */
-const SVG_I18N = {
-  ar: {
-    brainstorming: 'العصف الذهني',
-    sequencing: 'التسلسل',
-    comparing: 'المقارنة والتباين',
-    decision: 'مقياس القرار',
-    dividing: 'التقسيم (الكل والجزء)',
-    cause_effect: 'السبب والنتيجة',
-    linking: 'الربط',
-    classifying: 'التصنيف',
-    core: 'المحور',
-    idea: 'فكرة',
-    step: 'خطوة',
-    similarity: 'التشابه',
-    difference: 'الاختلاف',
-    detail: 'تفصيل',
-    whole: 'الكل',
-    mainPart: 'الجزء الرئيسي',
-    sub: 'جزء',
-    part: 'جزء',
-    event: 'حدث',
-    cause: 'سبب',
-    effect: 'نتيجة',
-    linkingFactor: 'عامل الربط',
-    category: 'فئة',
-    example: 'مثال'
-  },
-  en: {
-    brainstorming: 'BRAINSTORMING',
-    sequencing: 'SEQUENCING',
-    comparing: 'COMPARING AND CONTRASTING',
-    decision: 'DECISION SCALE',
-    dividing: 'DIVIDING (WHOLE & PART)',
-    cause_effect: 'CAUSE & EFFECT',
-    linking: 'LINKING',
-    classifying: 'CLASSIFYING',
-    core: 'Core',
-    idea: 'Idea',
-    step: 'Step',
-    similarity: 'Similarity',
-    difference: 'Difference',
-    detail: 'Detail',
-    whole: 'Whole',
-    mainPart: 'Main Part',
-    sub: 'Sub',
-    part: 'Part',
-    event: 'Event',
-    cause: 'Cause',
-    effect: 'Effect',
-    linkingFactor: 'Linking Factor',
-    category: 'Category',
-    example: 'Example'
-  }
-};
-
-function svgText(key){
-  return (SVG_I18N[lang] && SVG_I18N[lang][key]) || SVG_I18N.en[key] || key;
-}
-
 function title(text){
-  return `<text x="488" y="30" text-anchor="middle" font-family="Arial,sans-serif"
+  text=dl(text);
+  return `<text x="488" y="30" text-anchor="middle" font-family="${FF()}"
     font-size="18" font-weight="bold" fill="${WHT}" letter-spacing="2">${text}</text>`;
 }
 function rethinkers(){
@@ -361,7 +324,8 @@ function dot(cx,cy,r=7,fill=ORG){
   return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${fill}"/>`;
 }
 function txt(x,y,content,size,fill,anchor='middle',weight='normal'){
-  return `<text x="${x}" y="${y}" text-anchor="${anchor}" font-family="Arial,sans-serif"
+  content=dl(content);
+  return `<text x="${x}" y="${y}" text-anchor="${anchor}" font-family="${FF()}"
     font-size="${size}" font-weight="${weight}" fill="${fill}">${content}</text>`;
 }
 function arrow(x1,y1,x2,y2,col=BLK){
@@ -374,14 +338,14 @@ function arrow(x1,y1,x2,y2,col=BLK){
 
 /* 1. BRAINSTORMING */
 function svgBrainstorming(topic, cleared){
-  const coreTxt = topic||svgText('core');
-  const ideaTxt = cleared?'':svgText('idea');
+  const coreTxt = topic||'Core';
+  const ideaTxt = cleared?'':'Idea';
   const ideas=[
     [190,90],[350,68],[510,78],[660,85],[780,90],
     [130,220],[770,225],
     [160,360],[340,385],[510,380],[660,375],[780,355]
   ];
-  let s = outerFrame()+title(svgText('brainstorming'))+innerBox(50,45,876,420);
+  let s = outerFrame()+title('BRAINSTORMING')+innerBox(50,45,876,420);
   // center big circle
   s += circle(488,252,60,WHT,ORG,3);
   s += txt(488,248,coreTxt,16,ORG,'middle','bold');
@@ -400,8 +364,8 @@ function svgBrainstorming(topic, cleared){
 
 /* 2. SEQUENCING */
 function svgSequencing(topic, cleared){
-  const stepTxt = cleared?'':svgText('step');
-  let s = outerFrame()+title(svgText('sequencing'))+innerBox(50,45,876,390);
+  const stepTxt = cleared?'':'Step';
+  let s = outerFrame()+title('SEQUENCING')+innerBox(50,45,876,390);
   const cx=[140,275,410,545,680,815];
   const cy=[160,160,160,340,340,340];
   const r=55;
@@ -431,9 +395,9 @@ function svgSequencing(topic, cleared){
 /* 3. COMPARING */
 function svgComparing(topic, cleared){
   let parts=topic?topic.split('/'):[null,null];
-  let c1=parts[0]?parts[0].trim():svgText('core')+' 1', c2=parts[1]?parts[1].trim():svgText('core')+' 2';
-  const simTxt=cleared?'':svgText('similarity'), diffTxt=cleared?'':svgText('difference');
-  let s=outerFrame()+title(svgText('comparing'))+innerBox(50,45,876,410);
+  let c1=parts[0]?parts[0].trim():'Core 1', c2=parts[1]?parts[1].trim():'Core 2';
+  const simTxt=cleared?'':'Similarity', diffTxt=cleared?'':'Difference';
+  let s=outerFrame()+title('COMPARING AND CONTRASTION')+innerBox(50,45,876,410);
   const lx=260,rx=716,cy=252,r=85;
   // circles
   s+=circle(lx,cy,r,WHT,BLK,2);
@@ -461,8 +425,8 @@ function svgComparing(topic, cleared){
 
 /* 4. DECISION SCALE */
 function svgDecision(topic, cleared){
-  const coreTxt=topic||svgText('core'), detailTxt=cleared?'':svgText('detail');
-  let s=outerFrame()+title(svgText('decision'))+innerBox(50,45,876,400);
+  const coreTxt=topic||'Core', detailTxt=cleared?'':'Detail';
+  let s=outerFrame()+title('DECISION SCALE')+innerBox(50,45,876,400);
   // top core
   s+=circle(488,120,52,WHT,BLK,2);
   s+=txt(488,125,coreTxt,14,BLK,'middle','bold');
@@ -492,8 +456,8 @@ function svgDecision(topic, cleared){
 /* 5. DIVIDING */
 function svgDividing(topic, cleared, branchCount){
   branchCount = Math.max(1, Math.min(8, parseInt(branchCount)||3));
-  const wholeTxt=topic||svgText('whole'), mpTxt=cleared?'':svgText('mainPart'), subTxt=cleared?'':svgText('sub');
-  let s=outerFrame()+title(svgText('dividing'))+innerBox(50,45,876,410);
+  const wholeTxt=topic||'Whole', mpTxt=cleared?'':'Main Part', subTxt=cleared?'':'Sub';
+  let s=outerFrame()+title('DIVIDING (WHOLE & PART)')+innerBox(50,45,876,410);
   const wx=140, wy=252, wr=55;
   s+=circle(wx,wy,wr,WHT,BLK,2);
   const words=wholeTxt.split(' ');
@@ -523,7 +487,7 @@ function svgDividing(topic, cleared, branchCount){
     s+=circle(360,my,r2,WHT,BLK,1.5);
     if(mpTxt){
       s+=txt(360,my-(r2>28?4:2),mpTxt,Math.max(7,Math.floor(r2*0.32)),GRY,'middle');
-      if(r2>24) s+=txt(360,my+(r2>28?10:8),svgText('part'),Math.max(7,Math.floor(r2*0.32)),GRY,'middle');
+      if(r2>24) s+=txt(360,my+(r2>28?10:8),'Part',Math.max(7,Math.floor(r2*0.32)),GRY,'middle');
     }
     subOffsets.forEach(dy=>{
       const sx=480, sy=my+dy;
@@ -538,8 +502,8 @@ function svgDividing(topic, cleared, branchCount){
 
 /* 6. CAUSE & EFFECT */
 function svgCauseEffect(topic, cleared){
-  const evTxt=topic||svgText('event'), causeTxt=cleared?'':svgText('cause'), effTxt=cleared?'':svgText('effect');
-  let s=outerFrame()+title(svgText('cause_effect'))+innerBox(50,45,876,400);
+  const evTxt=topic||'Event', causeTxt=cleared?'':'Cause', effTxt=cleared?'':'Effect';
+  let s=outerFrame()+title('CAUSE & EFFECT')+innerBox(50,45,876,400);
   s+=circle(488,252,90,WHT,BLK,2);
   s+=txt(488,257,evTxt,18,BLK,'middle','bold');
   const ys=[170,252,335];
@@ -557,12 +521,12 @@ function svgCauseEffect(topic, cleared){
 
 /* 7. LINKING */
 function svgLinking(topic, cleared){
-  const lfTxt=topic||svgText('linkingFactor'), labelTxt=cleared?'':'';
+  const lfTxt=topic||'Linking Factor', labelTxt=cleared?'':'';
   const letters=cleared?['','','','','','']:['A','B','C','D','E','F'];
-  let s=outerFrame()+title(svgText('linking'))+innerBox(50,45,876,400);
+  let s=outerFrame()+title('LINKING')+innerBox(50,45,876,400);
   // linking factor circle
   s+=circle(160,252,70,WHT,BLK,2);
-  s+=txt(160,248,svgText('linking'),11,BLK,'middle','bold');
+  s+=txt(160,248,'Linking',11,BLK,'middle','bold');
   s+=txt(160,263,lfTxt,13,ORG,'middle','bold');
   // horizontal line
   s+=`<line x1="230" y1="252" x2="900" y2="252" stroke="#999" stroke-width="1.5"/>`;
@@ -584,9 +548,9 @@ function svgLinking(topic, cleared){
 /* 8. CLASSIFYING */
 function svgClassifying(topic, cleared, branchCount){
   branchCount = Math.max(1, Math.min(8, parseInt(branchCount)||3));
-  const coreTxt=topic||svgText('core'), catTxt=cleared?'':svgText('category'),
-        detTxt=cleared?'':svgText('detail'), exTxt=cleared?'':svgText('example');
-  let s=outerFrame()+title(svgText('classifying'))+innerBox(50,45,876,440);
+  const coreTxt=topic||'Core', catTxt=cleared?'':'Category',
+        detTxt=cleared?'':'Detail', exTxt=cleared?'':'Example';
+  let s=outerFrame()+title('CLASSIFYING')+innerBox(50,45,876,440);
   const tcx=488, tcy=100, tr=46;
   s+=circle(tcx,tcy,tr,WHT,BLK,2);
   const words=coreTxt.split(' ');
@@ -668,6 +632,7 @@ LENSES.forEach((L,idx)=>{
     <div class="card-flip-inner">
       <div class="card-flip-face">
         <img class="card-thumb" src="${L.img}" alt="" loading="lazy"/>
+        <div class="thumb-title" style="left:${BOXES[idx].l}%;width:${(BOXES[idx].r-BOXES[idx].l).toFixed(3)}%;top:${BOXES[idx].t}%;height:${(BOXES[idx].b-BOXES[idx].t).toFixed(3)}%;background:${BOXES[idx].bg}"></div>
       </div>
       <div class="card-flip-face card-flip-back">
         <div class="flip-name-ar"></div>
@@ -785,25 +750,14 @@ const langToggleLabel=document.getElementById('langToggleLabel');
 function updateGridTexts(){
   allWraps.forEach(w=>{
     const L=LENSES[parseInt(w.dataset.idx)];
-    const [big,small]=lensNames(L);
-    w.querySelector('.flip-name-ar').textContent=big;
-    w.querySelector('.flip-name-en').textContent=small;
-    w.querySelector('.flip-core').textContent='✏️ ' + (lang === 'en' ? (L.core_label || svgText('core')) : svgText('core'));
-    const thumb=w.querySelector('.card-thumb');
-    thumb.alt=big;
-
-    // Keep the original English thumbnail exactly as designed.
-    // Arabic thumbnails are generated from the language-aware SVG builder.
-    if(lang === 'en') {
-      thumb.src = L.img;
-    } else {
-      const builder=SVG_BUILDERS[L.id];
-      if(builder){
-        const inner=builder('',false,3);
-        const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 976 504" width="976" height="504">${inner}</svg>`;
-        thumb.src='data:image/svg+xml;charset=UTF-8,'+encodeURIComponent(svg);
-      }
-    }
+    const name=lensName(L);
+    w.querySelector('.flip-name-ar').textContent=name;
+    w.querySelector('.flip-name-en').style.display='none';
+    w.querySelector('.flip-core').textContent='✏️ '+dl(L.core_label);
+    w.querySelector('.card-thumb').alt=name;
+    const tt=w.querySelector('.thumb-title');
+    tt.textContent=L.ar;
+    tt.style.display=(lang==='ar')?'flex':'none';
   });
 }
 
@@ -827,9 +781,9 @@ function applyLang(l,save){
   langToggle.title=dict.toggleAria;
 
   updateGridTexts();
-  if(activeIdx>=0) {
+  if(activeIdx>=0){
     inputLabel.textContent=lensDesc(LENSES[activeIdx])+':';
-    renderDiagram(activeIdx,topicInput.value.trim(),activeCleared,activeBranches);
+    renderDiagram(activeIdx,activeCleared?topicInput.value.trim():'',activeCleared,activeBranches);
   }
 
   if(save){ try{ localStorage.setItem(LANG_KEY,l); }catch(e){} }
